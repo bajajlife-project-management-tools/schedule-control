@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  schedule-control:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: schedule-control-app:latest
+    container_name: schedule-control-governance
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DB_PATH=/app/data/schedule-control.db
+    volumes:
+      - ./data:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:3001/api/projects || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
