@@ -5,7 +5,9 @@ const ProjectContext = createContext(null);
 
 export function ProjectProvider({ children }) {
   const [projects, setProjects] = useState([]);
-  const [activeProjectId, setActiveProjectId] = useState(null);
+  const [activeProjectId, setActiveProjectId] = useState(() => {
+    return localStorage.getItem('schedule_control_active_project') || null;
+  });
   const [dashboardData, setDashboardData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -16,69 +18,74 @@ export function ProjectProvider({ children }) {
     role: 'ADMIN',
   });
 
-  // Load project list
-  const loadProjects = useCallback(async () => {
-    try {
-      setLoading(true);
-      const list = await api.getProjects();
-      setProjects(list || []);
-      if (list && list.length > 0) {
-        if (!activeProjectId || !list.find(p => p.id === activeProjectId)) {
-          setActiveProjectId(list[0].id);
-        }
-      } else {
-        setActiveProjectId(null);
-        setDashboardData(null);
-      }
-      setError(null);
-    } catch (err) {
-      console.error('Failed to load projects:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [activeProjectId]);
-
-  // Load dashboard data for active project
+  // Load dashboard data for a specific project ID
   const loadDashboard = useCallback(async (projectId) => {
-    const id = projectId || activeProjectId;
-    if (!id) {
+    if (!projectId) {
       setDashboardData(null);
       return;
     }
     try {
       setLoading(true);
-      const data = await api.getDashboard(id);
+      const data = await api.getDashboard(projectId);
       setDashboardData(data);
       setError(null);
     } catch (err) {
-      console.error('Failed to load dashboard:', err);
-      setError(err.message);
+      console.error(`Failed to load dashboard for ${projectId}:`, err);
+      setError(err.message || 'Failed to load project dashboard.');
+      setDashboardData(null);
     } finally {
       setLoading(false);
     }
-  }, [activeProjectId]);
+  }, []);
 
-  useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
+  // Initialize projects & active project on boot
+  const initProjects = useCallback(async () => {
+    try {
+      setLoading(true);
+      const list = await api.getProjects();
+      setProjects(list || []);
 
-  useEffect(() => {
-    if (activeProjectId) {
-      loadDashboard(activeProjectId);
+      if (list && list.length > 0) {
+        const savedId = localStorage.getItem('schedule_control_active_project');
+        const validId = (savedId && list.some(p => p.id === savedId)) ? savedId : list[0].id;
+        
+        setActiveProjectId(validId);
+        localStorage.setItem('schedule_control_active_project', validId);
+
+        // Immediately fetch dashboard for active project before clearing loading
+        const data = await api.getDashboard(validId);
+        setDashboardData(data);
+        setError(null);
+      } else {
+        setActiveProjectId(null);
+        setDashboardData(null);
+      }
+    } catch (err) {
+      console.error('Failed to initialize projects:', err);
+      setError(err.message || 'Failed to connect to schedule control server.');
+    } finally {
+      setLoading(false);
     }
-  }, [activeProjectId, loadDashboard]);
+  }, []);
 
-  const selectProject = (id) => {
+  useEffect(() => {
+    initProjects();
+  }, [initProjects]);
+
+  // Select project handler
+  const selectProject = async (id) => {
     setActiveProjectId(id);
+    localStorage.setItem('schedule_control_active_project', id);
+    await loadDashboard(id);
   };
 
   const refresh = async () => {
     if (activeProjectId) {
       await loadDashboard(activeProjectId);
-      // Also reload projects in case name/status changed
       const list = await api.getProjects();
       setProjects(list || []);
+    } else {
+      await initProjects();
     }
   };
 
@@ -96,7 +103,7 @@ export function ProjectProvider({ children }) {
     currentUser,
     selectProject,
     refresh,
-    loadProjects,
+    loadProjects: initProjects,
     switchRole,
   };
 

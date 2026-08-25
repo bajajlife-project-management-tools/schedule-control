@@ -63,16 +63,21 @@ export async function recalculateProject(projectId) {
     // Calculate task status
     const statusResult = calculateTaskStatus(task, toleranceDays, calendar, holidaySet, prevForecast);
 
-    // Calculate variances
-    const currentBaselineFinish = parseDate(task.current_baseline_finish);
+    // Variances
     const originalBaselineFinish = parseDate(task.original_baseline_finish);
     const currentBaselineStart = parseDate(task.current_baseline_start);
     const actualStart = parseDate(task.actual_start);
-    const forecastFinish = parseDate(task.owner_forecast_finish);
 
     let startVariance = null;
     if (currentBaselineStart && actualStart) {
       startVariance = workingDaysBetween(currentBaselineStart, actualStart, calendar, holidaySet);
+    }
+
+    let finishVarianceCurrent = statusResult.varianceWD;
+    let finishVarianceOriginal = null;
+    const effectiveFinishDate = parseDate(task.actual_finish) || parseDate(task.owner_forecast_finish);
+    if (originalBaselineFinish && effectiveFinishDate) {
+      finishVarianceOriginal = workingDaysBetween(originalBaselineFinish, effectiveFinishDate, calendar, holidaySet);
     }
 
     // Duration
@@ -100,6 +105,9 @@ export async function recalculateProject(projectId) {
     execute(`
       UPDATE tasks SET
         task_status = ?,
+        start_variance_wd = ?,
+        forecast_variance_current_wd = ?,
+        forecast_variance_original_wd = ?,
         total_float = ?,
         free_float = ?,
         is_critical_path = ?,
@@ -110,6 +118,9 @@ export async function recalculateProject(projectId) {
       WHERE id = ?
     `, [
       statusResult.status,
+      startVariance,
+      finishVarianceCurrent,
+      finishVarianceOriginal,
       totalFloat,
       freeFloat,
       cpm ? (cpm.isCriticalPath ? 1 : 0) : 0,

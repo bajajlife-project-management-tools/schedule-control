@@ -9,6 +9,7 @@ import CTOView from './pages/CTOView.jsx';
 import ScheduleTracker from './pages/ScheduleTracker.jsx';
 import MilestoneControl from './pages/MilestoneControl.jsx';
 import GanttView from './pages/GanttView.jsx';
+import NetworkGraphView from './pages/NetworkGraphView.jsx';
 import CriticalPathView from './pages/CriticalPathView.jsx';
 import WeeklyControl from './pages/WeeklyControl.jsx';
 import RAIDManagement from './pages/RAIDManagement.jsx';
@@ -32,6 +33,7 @@ export default function App() {
               <Route path="/schedule" element={<ScheduleTracker />} />
               <Route path="/milestones" element={<MilestoneControl />} />
               <Route path="/gantt" element={<GanttView />} />
+              <Route path="/network-graph" element={<NetworkGraphView />} />
               <Route path="/critical-path" element={<CriticalPathView />} />
               <Route path="/weekly-control" element={<WeeklyControl />} />
               <Route path="/raid" element={<RAIDManagement />} />

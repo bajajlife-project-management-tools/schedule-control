@@ -15,6 +15,7 @@ export default function Sidebar() {
     { section: 'SCHEDULE & NETWORK' },
     { to: '/schedule', label: 'Schedule Tracker', icon: '📋' },
     { to: '/gantt', label: 'Interactive Gantt', icon: '📈' },
+    { to: '/network-graph', label: 'Dependency Network Graph', icon: '🕸️' },
     { to: '/milestones', label: 'Milestone Control', icon: '🏁' },
     { to: '/critical-path', label: 'Critical Path & Float', icon: '⚡' },
 

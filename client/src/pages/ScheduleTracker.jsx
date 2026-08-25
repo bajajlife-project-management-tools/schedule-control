@@ -5,8 +5,19 @@ import Modal from '../components/common/Modal.jsx';
 import { api } from '../api/client.js';
 
 export default function ScheduleTracker() {
-  const { dashboardData, refresh, currentUser } = useProject();
+  const { dashboardData, refresh, currentUser, loading } = useProject();
   const [searchTerm, setSearchTerm] = useState('');
+
+  if (loading) {
+    return (
+      <div className="page-content">
+        <div className="loading">
+          <div className="loading-spinner"></div>
+          <div>Loading Schedule Control Register...</div>
+        </div>
+      </div>
+    );
+  }
   const [selectedMilestone, setSelectedMilestone] = useState('ALL');
   const [selectedStatus, setSelectedStatus] = useState('ALL');
   const [onlyCriticalPath, setOnlyCriticalPath] = useState(false);
@@ -147,20 +158,21 @@ export default function ScheduleTracker() {
         <table className="data-table">
           <thead>
             <tr>
-              <th style={{ width: '70px' }}>Task ID</th>
+              <th style={{ width: '65px' }}>Task ID</th>
+              <th style={{ width: '80px' }}>Milestone</th>
               <th style={{ minWidth: '220px' }}>Task Name</th>
-              <th>Owner</th>
-              <th>Orig BL Finish</th>
-              <th>Curr BL Finish</th>
+              <th>Planned Start</th>
+              <th>Planned End</th>
               <th>Actual Start</th>
               <th>Actual Finish</th>
               <th>Forecast Finish</th>
               <th className="cell-number">% Done</th>
-              <th className="cell-number">Var vs Curr (WD)</th>
+              <th>Task Status</th>
+              <th className="cell-number">Start Var (WD)</th>
+              <th className="cell-number">Finish Var (WD)</th>
               <th className="cell-number">Total Float</th>
               <th className="cell-number">Free Float</th>
-              <th>Critical?</th>
-              <th>Task Status</th>
+              <th>Critical Path</th>
               <th>Impact to Finish</th>
               <th>Actions</th>
             </tr>
@@ -168,73 +180,100 @@ export default function ScheduleTracker() {
           <tbody>
             {filteredTasks.length === 0 ? (
               <tr>
-                <td colSpan="16" style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
+                <td colSpan="17" style={{ textAlign: 'center', padding: 'var(--space-8)', color: 'var(--color-text-muted)' }}>
                   No tasks match the active filters.
                 </td>
               </tr>
             ) : (
               filteredTasks.map((t) => {
+                const ms = milestones.find(m => m.id === t.milestone_id);
                 const isLate = (t.forecast_variance_current_wd || 0) > 0;
                 const isEarly = (t.forecast_variance_current_wd || 0) < 0;
                 return (
                   <tr key={t.id} className={t.is_critical_path ? 'critical-path' : ''}>
-                    <td style={{ fontWeight: 700, color: 'var(--color-accent)' }}>{t.task_id}</td>
+                    <td style={{ fontWeight: 700, color: t.is_critical_path ? 'var(--color-red)' : 'var(--color-accent)' }}>
+                      {t.task_id}
+                    </td>
+                    <td>
+                      <span style={{
+                        fontSize: '0.65rem',
+                        padding: '2px 6px',
+                        borderRadius: '3px',
+                        background: 'var(--color-bg-tertiary)',
+                        border: '1px solid var(--color-border)',
+                        fontWeight: 700,
+                        color: 'var(--color-text-secondary)'
+                      }}>
+                        {ms ? ms.milestone_id : 'M1'}
+                      </span>
+                    </td>
                     <td style={{ fontWeight: 500 }} title={t.name}>
                       {t.name}
                     </td>
-                    <td style={{ color: 'var(--color-text-secondary)' }}>{t.owner || '—'}</td>
-                    
-                    {/* Baseline Columns with Lock warning on click */}
+
+                    {/* Planned / Baseline Dates with lock tooltip */}
                     <td
                       onClick={handleBaselineAttempt}
-                      style={{ cursor: 'pointer', color: 'var(--color-text-muted)' }}
-                      title="Locked Baseline. Click to see governance rules."
+                      style={{ cursor: 'pointer', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs)' }}
+                      title="Baseline Planned Start Date. Locked by PMP Governance."
                     >
-                      {t.original_baseline_finish || '—'} 🔒
+                      {t.current_baseline_start || '—'}
                     </td>
                     <td
                       onClick={handleBaselineAttempt}
-                      style={{ cursor: 'pointer', color: 'var(--color-text-muted)' }}
-                      title="Locked Current Baseline. Click to see governance rules."
+                      style={{ cursor: 'pointer', color: 'var(--color-text-secondary)', fontSize: 'var(--font-size-xs)' }}
+                      title="Baseline Planned End Date. Locked by PMP Governance."
                     >
-                      {t.current_baseline_finish || '—'} 🔒
+                      {t.current_baseline_finish || '—'}
                     </td>
 
                     {/* Actuals */}
-                    <td style={{ color: t.actual_start ? 'var(--color-text-primary)' : 'var(--color-text-muted)' }}>
+                    <td style={{ color: t.actual_start ? 'var(--color-text-primary)' : 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)' }}>
                       {t.actual_start || '—'}
                     </td>
-                    <td style={{ color: t.actual_finish ? 'var(--color-green)' : 'var(--color-text-muted)', fontWeight: t.actual_finish ? 600 : 400 }}>
+                    <td style={{ color: t.actual_finish ? 'var(--color-green)' : 'var(--color-text-muted)', fontWeight: t.actual_finish ? 600 : 400, fontSize: 'var(--font-size-xs)' }}>
                       {t.actual_finish || '—'}
                     </td>
 
                     {/* Forecast */}
-                    <td style={{ color: t.owner_forecast_finish ? 'var(--color-blue)' : 'var(--color-text-muted)', fontWeight: 600 }}>
+                    <td style={{ color: t.owner_forecast_finish ? 'var(--color-blue)' : 'var(--color-text-muted)', fontWeight: 600, fontSize: 'var(--font-size-xs)' }}>
                       {t.actual_finish ? '—' : (t.owner_forecast_finish || 'Required')}
                     </td>
 
                     {/* % Done */}
                     <td className="cell-number">
                       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '6px' }}>
-                        <div style={{ width: '40px', background: 'var(--color-bg-input)', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
+                        <div style={{ width: '36px', background: 'var(--color-bg-input)', height: '6px', borderRadius: '3px', overflow: 'hidden' }}>
                           <div style={{ width: `${t.percent_complete || 0}%`, background: t.percent_complete >= 100 ? 'var(--color-green)' : 'var(--color-accent)', height: '100%' }} />
                         </div>
-                        <span>{t.percent_complete || 0}%</span>
+                        <span style={{ fontSize: 'var(--font-size-xs)' }}>{t.percent_complete || 0}%</span>
                       </div>
                     </td>
 
-                    {/* Variance */}
-                    <td className={`cell-number variance-cell ${isLate ? 'variance-positive' : isEarly ? 'variance-negative' : 'variance-zero'}`}>
+                    {/* Status */}
+                    <td>
+                      <StatusBadge status={t.task_status} />
+                    </td>
+
+                    {/* Start Variance */}
+                    <td className="cell-number" style={{ fontSize: 'var(--font-size-xs)', color: (t.start_variance_wd || 0) > 0 ? 'var(--color-red)' : (t.start_variance_wd || 0) < 0 ? 'var(--color-green)' : 'var(--color-text-muted)' }}>
+                      {t.start_variance_wd !== null && t.start_variance_wd !== undefined ? (
+                        `${t.start_variance_wd > 0 ? '+' : ''}${t.start_variance_wd} WD`
+                      ) : '0 WD'}
+                    </td>
+
+                    {/* Finish Variance */}
+                    <td className={`cell-number variance-cell ${isLate ? 'variance-positive' : isEarly ? 'variance-negative' : 'variance-zero'}`} style={{ fontSize: 'var(--font-size-xs)' }}>
                       {t.forecast_variance_current_wd !== null && t.forecast_variance_current_wd !== undefined ? (
                         `${t.forecast_variance_current_wd > 0 ? '+' : ''}${t.forecast_variance_current_wd} WD`
-                      ) : '—'}
+                      ) : '0 WD'}
                     </td>
 
                     {/* Float */}
-                    <td className="cell-number" style={{ color: t.total_float <= 0 ? 'var(--color-red)' : 'var(--color-text-secondary)', fontWeight: t.total_float <= 0 ? 700 : 400 }}>
+                    <td className="cell-number" style={{ color: t.total_float <= 0 ? 'var(--color-red)' : 'var(--color-text-secondary)', fontWeight: t.total_float <= 0 ? 700 : 400, fontSize: 'var(--font-size-xs)' }}>
                       {t.total_float !== null && t.total_float !== undefined ? `${t.total_float} WD` : 'N/A'}
                     </td>
-                    <td className="cell-number" style={{ color: 'var(--color-text-muted)' }}>
+                    <td className="cell-number" style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)' }}>
                       {t.free_float !== null && t.free_float !== undefined ? `${t.free_float} WD` : 'N/A'}
                     </td>
 
@@ -245,11 +284,6 @@ export default function ScheduleTracker() {
                       ) : (
                         <span style={{ color: 'var(--color-text-muted)', fontSize: 'var(--font-size-xs)' }}>No</span>
                       )}
-                    </td>
-
-                    {/* Status */}
-                    <td>
-                      <StatusBadge status={t.task_status} />
                     </td>
 
                     {/* Impact */}

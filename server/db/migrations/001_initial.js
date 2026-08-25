@@ -1,4 +1,4 @@
-import { getDb, execSQL } from '../database.js';
+import { getDb, execSQL, saveDb } from '../database.js';
 
 export function migrate() {
   execSQL(`
@@ -108,6 +108,9 @@ export function migrate() {
       critical_path_manual_override INTEGER DEFAULT 0,
       schedule_impact INTEGER,
       task_status TEXT DEFAULT 'NOT STARTED',
+      start_variance_wd INTEGER,
+      forecast_variance_current_wd INTEGER,
+      forecast_variance_original_wd INTEGER,
       variance_cause TEXT,
       recovery_action TEXT,
       recovery_date TEXT,
@@ -383,5 +386,17 @@ export function migrate() {
     CREATE INDEX IF NOT EXISTS idx_alert_log_project ON alert_log(project_id);
   `);
 
+  const cols = [
+    'start_variance_wd INTEGER',
+    'forecast_variance_current_wd INTEGER',
+    'forecast_variance_original_wd INTEGER'
+  ];
+  for (const c of cols) {
+    try {
+      execSQL(`ALTER TABLE tasks ADD COLUMN ${c}`);
+    } catch (e) {}
+  }
+
+  saveDb();
   console.log('✅ Database migration completed successfully.');
 }
